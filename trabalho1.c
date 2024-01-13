@@ -7,12 +7,17 @@
 */
 
 #include <stdio.h>
-// #include <pthread.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
 
 #define TAM_MAX 1000
 typedef int matriz[TAM_MAX][TAM_MAX];
+typedef struct parametros
+{
+    int linha;
+    int contador;
+} parametros;
 
 void gerar_matriz(matriz mat, int n_linhas, int n_colunas);
 void mostrar_matriz(matriz mat, int n_linhas, int n_colunas);
@@ -21,6 +26,9 @@ void calcula_matriz(matriz mat, int n_linhas, int n_colunas);
 
 matriz m1;
 int n_linhas, n_colunas;
+pthread_t threads[TAM_MAX];
+parametros lista_parametros[TAM_MAX];
+
 
 int main()
 {
@@ -34,7 +42,19 @@ int main()
     gerar_matriz(m1, n_linhas, n_colunas);
     mostrar_matriz(m1, n_linhas, n_colunas);
 
-    calcula_matriz(m1, n_linhas, n_colunas);
+    for(int i=0; i<n_linhas; i++)
+    {
+        lista_parametros[i].contador = 0;
+        lista_parametros[i].linha = i;
+        pthread_create(&threads[i], NULL, calcular, &lista_parametros[i]);
+    }
+
+    for (int i=0; i<n_linhas; i++)
+    {
+        pthread_join(&threads[i], NULL);
+    }
+    
+    // calcula_matriz(m1, n_linhas, n_colunas);
     mostrar_matriz(m1, n_linhas, n_colunas);
 }
 
@@ -115,6 +135,11 @@ void calcula_matriz(matriz mat, int n_linhas, int n_colunas)
             mat[i][j] = media_vizinhos(mat, n_linhas, n_colunas, i, j);
         }
     }
+}
+
+void * calcular(void * args)
+{
+
 }
 
 void gerar_matriz(matriz mat, int n_linhas, int n_colunas)
