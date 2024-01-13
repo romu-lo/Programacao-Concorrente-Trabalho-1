@@ -17,6 +17,9 @@ typedef struct parametros
 {
     int linha;
     int contador;
+    pthread_mutex_t mutex_contador;
+    pthread_mutex_t mutex_cond;
+    pthread_cond_t cond;
 } parametros;
 
 void gerar_matriz(matriz mat, int n_linhas, int n_colunas);
@@ -46,6 +49,9 @@ int main()
     {
         lista_parametros[i].contador = 0;
         lista_parametros[i].linha = i;
+        pthread_cond_init(&lista_parametros[i].cond, NULL);
+        pthread_mutex_init(&lista_parametros[i].mutex_contador, NULL);
+        pthread_mutex_init(&lista_parametros[i].mutex_cond, NULL);
         pthread_create(&threads[i], NULL, calcular, &lista_parametros[i]);
     }
 
@@ -142,11 +148,44 @@ void *calcular(void *args)
     parametros *p = args;
     int i = p->linha;
 
-    for (int j = 0; j < n_colunas; j++)
+    // for (int j = 0; j < n_colunas; j++)
+    // {
+    for (;;)
     {
-        m1[i][j] = media_vizinhos(m1, n_linhas, n_colunas, i, j);
-        p->contador = j + 1;
+        pthread_mutex_lock(&lista_parametros[p->linha-1].mutex_cond);
+        if (p->linha > 0)
+        {
+            while (1)
+            {
+                pthread_mutex_lock(&lista_parametros[p->linha - 1].mutex_contador);
+                int contador_cima = lista_parametros[p->linha - 1].contador;
+                pthread_mutex_unlock(&lista_parametros[p->linha - 1].mutex_contador);
+
+                if (contador_cima - 1 > p->contador)
+                    break;
+
+                else if (contador_cima == n_colunas)
+                    break;
+
+                else
+                    pthread_cond_wait(&lista_parametros[p->linha - 1].cond, &lista_parametros[p->linha-1].mutex_cond);
+            }
+        }
+        pthread_mutex_unlock(&lista_parametros[p->linha-1].mutex_cond);
+
+        m1[i][p->contador] = media_vizinhos(m1, n_linhas, n_colunas, i, p->contador);
+        pthread_mutex_lock(&p->mutex_contador);
+        p->contador++;
+        pthread_mutex_unlock(&p->mutex_contador);
+
+        pthread_mutex_lock(&p->mutex_cond);
+        pthread_cond_signal(&p->cond);
+        pthread_mutex_unlock(&p->mutex_cond);
+
+        if (p->contador == n_colunas)
+            return NULL;
     }
+    // }
 }
 
 void gerar_matriz(matriz mat, int n_linhas, int n_colunas)
